@@ -16,25 +16,62 @@ from torch.utils.data import DataLoader
 from .rl_data import Episode, Experience, TrainBatch
 
 
+# def calculate_conv_out_shape(H_in, W_in,kernel_size=2 padding=0, dialition=1, stride=1):
+#     H_out = math.floor(((H_in+(2*padding)-(dialition*(kernel_size-1))-1)/stride) + 1)
+#     W_out = math.floor(((W_in+(2*padding)-(dialition*(kernel_size-1))-1)/stride) + 1)
+#     return H_out, W_out
+    
+
 class PolicyNet(nn.Module):
     def __init__(self, in_features: int, out_actions: int, **kw):
         """
         Create a model which represents the agent's policy.
-        :param in_features: Number of input features (in one observation).
-        :param out_actions: Number of output actions.
+        :param in_features: Number of input features (in one observation). 8 params
+        :param out_actions: Number of output actions. 4 params
         :param kw: Any extra args needed to construct the model.
         """
         super().__init__()
 
         # TODO: Implement a simple neural net to approximate the policy.
         # ====== YOUR CODE: ======
-        raise NotImplementedError()
-        # ========================
+        
+#         self.conv = nn.Sequential(
+#             nn.Conv2d(in_features, 32, kernel_size=8, stride=4),
+#             nn.ReLU(),
+#             nn.Conv2d(32, 64, kernel_size=4, stride=2),
+#             nn.ReLU(),
+#             nn.Conv2d(64, 64, kernel_size=3, stride=1),
+#             nn.ReLU()
+#         )
+        
+#         in_shape = (in_features,1)
+#         n_conv_features = self._calc_num_conv_features(in_shape)
+#         self.fc = nn.Sequential(
+#             nn.Linear(n_conv_features, 512),
+#             nn.ReLU(),
+#             nn.Linear(512, out_actions)
+#         )
 
+
+        self.module = nn.Sequential(
+                        nn.Linear(in_features, 80),
+                        nn.ReLU(),
+                        nn.Linear(80, 100),
+                        nn.ReLU(),
+                        nn.Linear(100, 4),
+                        nn.Softmax()            
+                    )
+        # ========================
+        
+    def _calc_num_conv_features(self, in_shape):
+        x = torch.zeros(1, *in_shape)
+        out_shape = self.conv(x).shape
+        return int(np.prod(out_shape))
+    
     def forward(self, x):
         # TODO: Implement a simple neural net to approximate the policy.
         # ====== YOUR CODE: ======
-        raise NotImplementedError()
+        action_scores = self.module(x)
         # ========================
         return action_scores
 
@@ -49,7 +86,10 @@ class PolicyNet(nn.Module):
         """
         # TODO: Implement according to docstring.
         # ====== YOUR CODE: ======
-        raise NotImplementedError()
+        obs = env.reset()
+        in_features = obs.shape[0]
+        out_actions = env.action_space.n
+        net = PolicyNet(in_features, out_actions, **kw)
         # ========================
         return net.to(device)
 
