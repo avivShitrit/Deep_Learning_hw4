@@ -100,10 +100,10 @@ class TrainBatch(object):
         total_rewards = torch.Tensor([first_ep.total_reward])
 
         for episode in episodes[1:]:
-            q_vals = torch.cat(q_vals, torch.Tensor(episode.calc_qvals(gamma)))
-            states = torch.cat(states, torch.Tensor([list(exp.state) for exp in episode.experiences]))
-            actions = torch.cat(actions, torch.Tensor([exp.action for exp in episode.experiences]))
-            total_rewards = torch.cat(total_rewards, torch.Tensor([episode.total_reward]))
+            q_vals = torch.cat((q_vals, torch.Tensor(episode.calc_qvals(gamma))))
+            states = torch.cat((states, torch.Tensor([list(exp.state) for exp in episode.experiences])))
+            actions = torch.cat((actions, torch.Tensor([exp.action for exp in episode.experiences])))
+            total_rewards = torch.cat((total_rewards, torch.Tensor([episode.total_reward])))
         train_batch = cls(states, actions, q_vals, total_rewards)
         # ========================
         return train_batch
