@@ -203,8 +203,8 @@ class VanillaPolicyGradientLoss(nn.Module):
         #   of total experiences in our batch.
         # ====== YOUR CODE: ======
         log_probabilities = torch.log_softmax(action_scores, dim=1)
-        chosen = log_probabilities.gather(dim=1, index=batch.actions.long().view(-1, 1)).view(-1)
-        wa = policy_weight.dot(chosen)
+        chosen_action = log_probabilities.gather(dim=1, index=batch.actions.long().view(-1, 1)).view(-1)
+        wa = policy_weight.dot(chosen_action)
         loss_p = -wa / len(batch)
         # ========================
         return loss_p
@@ -223,7 +223,11 @@ class BaselinePolicyGradientLoss(VanillaPolicyGradientLoss):
         #  Calculate the loss and baseline.
         #  Use the helper methods in this class as before.
         # ====== YOUR CODE: ======
-        raise NotImplementedError()
+        log_probabilities = torch.log_softmax(action_scores, dim=1)
+        chosen_action = log_probabilities.gather(dim=1, index=batch.actions.long().view(-1, 1)).view(-1)
+        policy_weights, baseline = self._policy_weight(batch)
+        policy_weights -= baseline
+        loss_p = -(policy_weights * chosen_action).mean()
         # ========================
         return loss_p, dict(loss_p=loss_p.item(), baseline=baseline.item())
 
@@ -232,7 +236,8 @@ class BaselinePolicyGradientLoss(VanillaPolicyGradientLoss):
         #  Calculate both the policy weight term and the baseline value for
         #  the PG loss with baseline.
         # ====== YOUR CODE: ======
-        raise NotImplementedError()
+        policy_weight = batch.q_vals
+        baseline = batch.q_vals.mean()
         # ========================
         return policy_weight, baseline
 
@@ -256,7 +261,7 @@ class ActionEntropyLoss(nn.Module):
         max_entropy = None
         # TODO: Compute max_entropy.
         # ====== YOUR CODE: ======
-        raise NotImplementedError()
+        max_entropy = torch.log(torch.Tensor([n_actions]))
         # ========================
         return max_entropy
 
@@ -282,7 +287,10 @@ class ActionEntropyLoss(nn.Module):
         #   - Use pytorch built-in softmax and log_softmax.
         #   - Calculate loss per experience and average over all of them.
         # ====== YOUR CODE: ======
-        raise NotImplementedError()
+        probabilities_score = torch.softmax(action_scores, 1)
+        log_probabilities_score = torch.log_softmax(action_scores, 1)
+        sum_score = torch.sum(probabilities_score * log_probabilities_score, 1)
+        loss_e = (sum_score / self.max_entropy).mean()
         # ========================
 
         loss_e *= self.beta
