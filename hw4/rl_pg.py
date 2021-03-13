@@ -16,12 +16,6 @@ from torch.utils.data import DataLoader
 from .rl_data import Episode, Experience, TrainBatch
 
 
-# def calculate_conv_out_shape(H_in, W_in,kernel_size=2 padding=0, dialition=1, stride=1):
-#     H_out = math.floor(((H_in+(2*padding)-(dialition*(kernel_size-1))-1)/stride) + 1)
-#     W_out = math.floor(((W_in+(2*padding)-(dialition*(kernel_size-1))-1)/stride) + 1)
-#     return H_out, W_out
-    
-
 class PolicyNet(nn.Module):
     def __init__(self, in_features: int, out_actions: int, **kw):
         """
@@ -34,39 +28,14 @@ class PolicyNet(nn.Module):
 
         # TODO: Implement a simple neural net to approximate the policy.
         # ====== YOUR CODE: ======
-        
-#         self.conv = nn.Sequential(
-#             nn.Conv2d(in_features, 32, kernel_size=8, stride=4),
-#             nn.ReLU(),
-#             nn.Conv2d(32, 64, kernel_size=4, stride=2),
-#             nn.ReLU(),
-#             nn.Conv2d(64, 64, kernel_size=3, stride=1),
-#             nn.ReLU()
-#         )
-        
-#         in_shape = (in_features,1)
-#         n_conv_features = self._calc_num_conv_features(in_shape)
-#         self.fc = nn.Sequential(
-#             nn.Linear(n_conv_features, 512),
-#             nn.ReLU(),
-#             nn.Linear(512, out_actions)
-#         )
-
-
         self.module = nn.Sequential(
-                        nn.Linear(in_features, 80),
+                        nn.Linear(in_features, 128),
                         nn.ReLU(),
-                        nn.Linear(80, 100),
+                        nn.Linear(128, 64),
                         nn.ReLU(),
-                        nn.Linear(100, 4),
-                        nn.Softmax()            
+                        nn.Linear(64, out_actions),
+                        nn.LogSoftmax()            
                     )
-        # ========================
-        
-    def _calc_num_conv_features(self, in_shape):
-        x = torch.zeros(1, *in_shape)
-        out_shape = self.conv(x).shape
-        return int(np.prod(out_shape))
     
     def forward(self, x):
         # TODO: Implement a simple neural net to approximate the policy.
@@ -86,8 +55,7 @@ class PolicyNet(nn.Module):
         """
         # TODO: Implement according to docstring.
         # ====== YOUR CODE: ======
-        obs = env.reset()
-        in_features = obs.shape[0]
+        in_features = env.observation_space.shape[0]
         out_actions = env.action_space.n
         net = PolicyNet(in_features, out_actions, **kw)
         # ========================
@@ -127,10 +95,12 @@ class PolicyAgent(object):
         #  Generate the distribution as described above.
         #  Notice that you should use p_net for *inference* only.
         # ====== YOUR CODE: ======
-        raise NotImplementedError()
+        with torch.no_grad():
+            action_space = self.p_net(self.curr_state.unsqueeze(0))
+            actions_proba = torch.softmax(action_space, dim=1)
         # ========================
 
-        return actions_proba
+        return actions_proba.view(-1)
 
     def step(self) -> Experience:
         """
@@ -149,8 +119,11 @@ class PolicyAgent(object):
         #  - Generate and return a new experience.
         # ====== YOUR CODE: ======
 
-        raise NotImplementedError()
-
+        probabilities = self.current_action_distribution()
+        action = probabilities.multinomial(1)
+        obs, reward, is_done, info = self.env.step(action.item())
+        experience = Experience(obs, action.item(), reward, is_done)
+        self.curr_state = torch.Tensor(obs)
         # ========================
         if is_done:
             self.reset()
@@ -176,7 +149,14 @@ class PolicyAgent(object):
             #  Create an agent and play the environment for one episode
             #  based on the policy encoded in p_net.
             # ====== YOUR CODE: ======
-            raise NotImplementedError()
+            agent = cls(env, p_net, device)
+            agent.reset()
+            is_done = False
+
+            while not is_done:
+                obs, _, curr_reward, is_done = agent.step()
+                reward += curr_reward
+                n_steps += 1
             # ========================
         return env, n_steps, reward
 
