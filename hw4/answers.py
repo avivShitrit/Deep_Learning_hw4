@@ -12,7 +12,7 @@ math (delimited with $$).
 
 def part1_pg_hyperparams():
     hp = dict(
-        batch_size=32, gamma=0.99, beta=0.5, learn_rate=1e-3, eps=1e-8, num_workers=2,
+        batch_size=16, gamma=0.95, beta=0.2, learn_rate=1e-3, eps=1e-8, num_workers=2,
     )
     # TODO: Tweak the hyperparameters if needed.
     #  You can also add new ones if you need them for your model's __init__.
@@ -24,10 +24,10 @@ def part1_pg_hyperparams():
 
 def part1_aac_hyperparams():
     hp = dict(
-        batch_size=32,
-        gamma=0.99,
-        beta=1.0,
-        delta=1.0,
+        batch_size=8,
+        gamma=0.95,
+        beta=1.,
+        delta=1.,
         learn_rate=1e-3,
         eps=1e-8,
         num_workers=2,
