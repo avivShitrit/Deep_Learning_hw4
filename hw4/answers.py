@@ -64,13 +64,11 @@ loss values just like we want.
 
 part1_q3 = r"""
 **Your answer:**
+1. If we examine the mea_reward graph we can see that there is no major difference between the experiments they all got 
+to approximately 50 mean_reward after 4000 episode. The best model was the cpg as we can see he got the best mean_reward 
+above the others and he also climbed early and picked at 2500 episodes
+We can also see that most fast learner was the bpg model that picked at 2000 episodes before all the rests.
 
-
-Write your answer using **markdown** and $\LaTeX$:
-```python
-# A code block
-a = 2
-```
-An equation: $e^{i\pi} -1 = 0$
-
+2. The results we got was very convincing that the aac model was far better then the rest. his best mean_reward was about 100
+and it looks like it can still climb if we train it longer where all the other models remain steady in approximately 50 mean_reward
 """
