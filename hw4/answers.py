@@ -42,28 +42,22 @@ def part1_aac_hyperparams():
 
 part1_q1 = r"""
 **Your answer:**
-
-
-Write your answer using **markdown** and $\LaTeX$:
-```python
-# A code block
-a = 2
-```
-An equation: $e^{i\pi} -1 = 0$
-
+When we subtract the baseline from the reward we get the advantage which is the measure of how much the current action is better than
+the usual action we would take in the same state. The reason this subtraction help reduce the variance is that the advantage has lower
+variance from because the baseline components for the variance introduced since its not depand on the state.
+Example: let assume we have very complicated task where for similar states we can very different rewards, by subtracting the baseline
+we are reducing the variance which will then by using experience will converge to a good behavior
 """
 
 
 part1_q2 = r"""
 **Your answer:**
+The reason we always get a valid approximation is that the connection between the terms $v_\pi(s)$ and $q_\pi(s,a)$. 
+Actually, $v_\pi(s)$ can be expressed as $\sum_{a \in A}\pi(a|s)q_\pi(s,a)$ which means that $v_\pi(s)$ is actually 
+takes into consideration all the possible q-values given state $s$ with respect to the agent behavior. 
 
-
-Write your answer using **markdown** and $\LaTeX$:
-```python
-# A code block
-a = 2
-```
-An equation: $e^{i\pi} -1 = 0$
+So if we define the baseline that way it will give us good results, since q-values close to this baseline will lead to lower 
+loss values just like we want.
 
 """
 
