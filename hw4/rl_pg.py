@@ -16,12 +16,6 @@ from torch.utils.data import DataLoader
 from .rl_data import Episode, Experience, TrainBatch
 
 
-# def calculate_conv_out_shape(H_in, W_in,kernel_size=2 padding=0, dialition=1, stride=1):
-#     H_out = math.floor(((H_in+(2*padding)-(dialition*(kernel_size-1))-1)/stride) + 1)
-#     W_out = math.floor(((W_in+(2*padding)-(dialition*(kernel_size-1))-1)/stride) + 1)
-#     return H_out, W_out
-    
-
 class PolicyNet(nn.Module):
     def __init__(self, in_features: int, out_actions: int, **kw):
         """
@@ -34,40 +28,15 @@ class PolicyNet(nn.Module):
 
         # TODO: Implement a simple neural net to approximate the policy.
         # ====== YOUR CODE: ======
+        layers = []
+        hidden_dims = [128,64]
+        l = len(hidden_dims + [in_features])
+        for idx, in_dim, out_dim in zip(range(l), [in_features] + hidden_dims, hidden_dims + [out_actions]):
+            layers.append(nn.Linear(in_dim, out_dim))
+            if(idx < len(hidden_dims)):
+                layers.append(nn.PReLU())
+        self.module = nn.Sequential(*layers)
         
-#         self.conv = nn.Sequential(
-#             nn.Conv2d(in_features, 32, kernel_size=8, stride=4),
-#             nn.ReLU(),
-#             nn.Conv2d(32, 64, kernel_size=4, stride=2),
-#             nn.ReLU(),
-#             nn.Conv2d(64, 64, kernel_size=3, stride=1),
-#             nn.ReLU()
-#         )
-        
-#         in_shape = (in_features,1)
-#         n_conv_features = self._calc_num_conv_features(in_shape)
-#         self.fc = nn.Sequential(
-#             nn.Linear(n_conv_features, 512),
-#             nn.ReLU(),
-#             nn.Linear(512, out_actions)
-#         )
-
-
-        self.module = nn.Sequential(
-                        nn.Linear(in_features, 80),
-                        nn.ReLU(),
-                        nn.Linear(80, 100),
-                        nn.ReLU(),
-                        nn.Linear(100, 4),
-                        nn.Softmax()            
-                    )
-        # ========================
-        
-    def _calc_num_conv_features(self, in_shape):
-        x = torch.zeros(1, *in_shape)
-        out_shape = self.conv(x).shape
-        return int(np.prod(out_shape))
-    
     def forward(self, x):
         # TODO: Implement a simple neural net to approximate the policy.
         # ====== YOUR CODE: ======
@@ -86,8 +55,7 @@ class PolicyNet(nn.Module):
         """
         # TODO: Implement according to docstring.
         # ====== YOUR CODE: ======
-        obs = env.reset()
-        in_features = obs.shape[0]
+        in_features = env.observation_space.shape[0]
         out_actions = env.action_space.n
         net = PolicyNet(in_features, out_actions, **kw)
         # ========================
@@ -127,7 +95,9 @@ class PolicyAgent(object):
         #  Generate the distribution as described above.
         #  Notice that you should use p_net for *inference* only.
         # ====== YOUR CODE: ======
-        raise NotImplementedError()
+        with torch.no_grad():
+            action_space = self.p_net(self.curr_state)
+            actions_proba = torch.softmax(action_space, 0)
         # ========================
 
         return actions_proba
@@ -137,7 +107,7 @@ class PolicyAgent(object):
         Performs a step using a policy-based action.
         :return: An Experience.
         """
-        # TODO:
+        # DONE:
         #  - Generate an action based on the policy model.
         #    Remember that the policy defines a probability *distribution* over
         #    possible actions. Make sure to treat it that way by *sampling*
@@ -148,9 +118,22 @@ class PolicyAgent(object):
         #  - Update agent state.
         #  - Generate and return a new experience.
         # ====== YOUR CODE: ======
+        action_probs = self.current_action_distribution()
+        
+        action = torch.multinomial(action_probs,1)
+#         action = m.sample()
+        action = int(action.item())
 
-        raise NotImplementedError()
+        next_state, reward, is_done, _ = self.env.step(action)
 
+        next_state = torch.tensor(next_state, device=self.device)
+
+        self.curr_episode_reward += reward
+
+        curr_state = self.curr_state
+        self.curr_state = next_state
+        
+        experience = Experience(curr_state, action, reward, is_done)
         # ========================
         if is_done:
             self.reset()
@@ -176,7 +159,14 @@ class PolicyAgent(object):
             #  Create an agent and play the environment for one episode
             #  based on the policy encoded in p_net.
             # ====== YOUR CODE: ======
-            raise NotImplementedError()
+            agent = cls(env, p_net, device)
+            agent.reset()
+            is_done = False
+
+            while not is_done:
+                obs, _, curr_reward, is_done = agent.step()
+                reward += curr_reward
+                n_steps += 1
             # ========================
         return env, n_steps, reward
 
@@ -198,7 +188,7 @@ class VanillaPolicyGradientLoss(nn.Module):
         #  Use the helper methods in this class to first calculate the weights
         #  and then the loss using the weights and action scores.
         # ====== YOUR CODE: ======
-        raise NotImplementedError()
+        loss_p = self._policy_loss(batch, action_scores, self._policy_weight(batch))
         # ========================
         return loss_p, dict(loss_p=loss_p.item())
 
@@ -207,7 +197,7 @@ class VanillaPolicyGradientLoss(nn.Module):
         #  Return the policy weight term for the causal vanilla PG loss.
         #  This is a tensor of shape (N,).
         # ====== YOUR CODE: ======
-        raise NotImplementedError()
+        policy_weight = batch.q_vals
         # ========================
         return policy_weight
 
@@ -222,7 +212,9 @@ class VanillaPolicyGradientLoss(nn.Module):
         #   different episodes. So, here we'll simply average over the number
         #   of total experiences in our batch.
         # ====== YOUR CODE: ======
-        raise NotImplementedError()
+        log_probabilities = torch.log_softmax(action_scores, dim=1)
+        chosen_action = log_probabilities.gather(dim=1, index=batch.actions.view(-1, 1)).squeeze(1)
+        loss_p = (-1.0/len(batch)) * ((chosen_action * policy_weight)).sum(dim=-1)
         # ========================
         return loss_p
 
@@ -236,11 +228,12 @@ class BaselinePolicyGradientLoss(VanillaPolicyGradientLoss):
         actions at each experience in the batch, shape (N, A).
         :return: A tuple of the loss and a dict for printing.
         """
-        # TODO:
+        # DONE:
         #  Calculate the loss and baseline.
         #  Use the helper methods in this class as before.
         # ====== YOUR CODE: ======
-        raise NotImplementedError()
+        policy_weight, baseline = self._policy_weight(batch)
+        loss_p = self._policy_loss(batch, action_scores, policy_weight-baseline)
         # ========================
         return loss_p, dict(loss_p=loss_p.item(), baseline=baseline.item())
 
@@ -249,7 +242,8 @@ class BaselinePolicyGradientLoss(VanillaPolicyGradientLoss):
         #  Calculate both the policy weight term and the baseline value for
         #  the PG loss with baseline.
         # ====== YOUR CODE: ======
-        raise NotImplementedError()
+        policy_weight = batch.q_vals
+        baseline = torch.mean(policy_weight, dim=-1)
         # ========================
         return policy_weight, baseline
 
@@ -273,7 +267,9 @@ class ActionEntropyLoss(nn.Module):
         max_entropy = None
         # TODO: Compute max_entropy.
         # ====== YOUR CODE: ======
-        raise NotImplementedError()
+        inv_actions = torch.tensor(1.0/n_actions)
+        log_actions = torch.log(inv_actions)
+        max_entropy = -1.0 * log_actions
         # ========================
         return max_entropy
 
@@ -299,7 +295,13 @@ class ActionEntropyLoss(nn.Module):
         #   - Use pytorch built-in softmax and log_softmax.
         #   - Calculate loss per experience and average over all of them.
         # ====== YOUR CODE: ======
-        raise NotImplementedError()
+        log_probabilities_score = torch.log_softmax(action_scores, 1)
+        probabilities_score = torch.softmax(action_scores, 1)
+        
+        entropys = -1.0 * (probabilities_score * log_probabilities_score).sum(1)
+        
+        entropy_norm = ((1/len(batch)) * entropys.sum(0)) / self.calc_max_entropy(action_scores.shape[1])
+        loss_e = -1.0 * entropy_norm
         # ========================
 
         loss_e *= self.beta
@@ -434,7 +436,7 @@ class PolicyTrainer(object):
     def train_batch(self, batch: TrainBatch):
         total_loss = None
         losses_dict = {}
-        # TODO:
+        # DONE:
         #  Complete the training loop for your model.
         #  Note that this Trainer supports multiple loss functions, stored
         #  in the list self.loss_functions, each returning a loss tensor and
@@ -446,7 +448,18 @@ class PolicyTrainer(object):
         #   - Backprop.
         #   - Update model parameters.
         # ====== YOUR CODE: ======
-        raise NotImplementedError()
+        self.optimizer.zero_grad()
+        total_loss = torch.tensor(0.0)
+        action_scores = self.model(batch.states)
+        for loss_fn in self.loss_functions:
+            loss_p, tmp_loss_dict = loss_fn(batch, action_scores)
+            total_loss += loss_p
+            losses_dict.update(tmp_loss_dict)
+
+        total_loss.backward()
+        self.optimizer.step()
+
         # ========================
 
         return total_loss, losses_dict
+
