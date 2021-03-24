@@ -179,6 +179,15 @@ def generator_loss_fn(y_generated, data_label=0):
     return loss
 
 
+def wgan_discriminator_loss_fn(y_data, y_generated):
+    loss = -torch.mean(y_data) + torch.mean(y_generated)
+    return loss
+
+def wgan_generator_loss_fn(y_generated):
+    loss = -torch.mean(y_generated)
+    return loss
+
+
 def train_batch(
     dsc_model: Discriminator,
     gen_model: Generator,
