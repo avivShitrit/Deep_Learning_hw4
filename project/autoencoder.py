@@ -28,13 +28,13 @@ class EncoderCNN(nn.Module):
             else:
                 modules.append(nn.Conv2d(in_channels, curr_channel, 5, stride=2, padding=2))
             modules.append(nn.BatchNorm2d(curr_channel))
-            modules.append(nn.ReLU())
+            modules.append(nn.LeakyReLU(0.2, True))
             in_channels = curr_channel
 
         # layer 5
         modules.append(nn.Conv2d(curr_channel, out_channels, 5, padding=2))
         modules.append(nn.BatchNorm2d(out_channels))
-        modules.append(nn.ReLU())
+        modules.append(nn.LeakyReLU(0.2, True))
         # ========================
         self.cnn = nn.Sequential(*modules)
 
@@ -64,7 +64,7 @@ class DecoderCNN(nn.Module):
         for curr_channel in channels:
             modules.append(nn.ConvTranspose2d(in_channels, curr_channel, 5, stride=2, padding=2, output_padding=1))
             modules.append(nn.BatchNorm2d(curr_channel))
-            modules.append(nn.ReLU())
+            modules.append(nn.LeakyReLU(0.2, True))
             in_channels = curr_channel
         
         modules.append(nn.ConvTranspose2d(curr_channel, out_channels, 5, stride=1, padding=2))

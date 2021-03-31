@@ -62,7 +62,7 @@ class Generator(nn.Module):
         #  section or implement something new.
         #  You can assume a fixed image size.
         # ====== YOUR CODE: ======
-        self.hidden_dim = 256
+        self.hidden_dim = 512
         prep_layer_mid_size = self.hidden_dim * featuremap_size ** 2
         prep_layer_out_size = self.hidden_dim * 4 ** 2
         
@@ -196,13 +196,15 @@ def train_batch(
     dsc_optimizer: Optimizer,
     gen_optimizer: Optimizer,
     x_data: DataLoader,
+    gen_train_mul: int,
 ):
     """
     Trains a GAN for over one batch, updating both the discriminator and
     generator.
     :return: The discriminator and generator losses.
     """
-
+    gen_train_mul = max(1, gen_train_mul)
+    
     # TODO: Discriminator update
     #  1. Show the discriminator real and generated data
     #  2. Calculate discriminator loss
@@ -224,9 +226,8 @@ def train_batch(
     #  2. Calculate generator loss
     #  3. Update generator parameters
     # ====== YOUR CODE: ======
-    for _ in range(2):
+    for _ in range(gen_train_mul):
         gen_optimizer.zero_grad()
-
         x_z = gen_model.sample(batch_size, True)
         score = dsc_model(x_z)
         gen_loss = gen_loss_fn(score)
@@ -238,7 +239,7 @@ def train_batch(
     return dsc_loss.item(), gen_loss.item()
 
 
-def save_checkpoint(gen_model, dsc_losses, gen_losses, checkpoint_file):
+def save_checkpoint(gen_model, inception_score, epoch_num, checkpoint_file, top_5_scores):
     """
     Saves a checkpoint of the generator, if necessary.
     :param gen_model: The Generator model to save.
@@ -246,23 +247,20 @@ def save_checkpoint(gen_model, dsc_losses, gen_losses, checkpoint_file):
     :param gen_losses: Avg. generator loss per epoch.
     :param checkpoint_file: Path without extension to save generator to.
     """
-
     saved = False
-    epoch = len(dsc_losses)
-    checkpoint_file = f"{checkpoint_file}_{epoch}.pt"
+    epoch = epoch_num
+    checkpoint_file = f"{checkpoint_file}_{epoch_num}_{inception_score}.pt"
     # TODO:
     #  Save a checkpoint of the generator model. You can use torch.save().
     #  You should decide what logic to use for deciding when to save.
     #  If you save, set saved to True.
     # ====== YOUR CODE: ======
-    avg_dsc_loss = dsc_losses[-1]
-    avg_gen_loss = gen_losses[-1]
+    min_score = 0
     
-    if(epoch>20):
+    if(epoch > 30):
         torch.save(gen_model, checkpoint_file)
         print("saved checkpoint")
         saved = True
-
     # ========================
 
     return saved
