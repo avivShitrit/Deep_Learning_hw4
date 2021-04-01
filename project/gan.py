@@ -13,17 +13,10 @@ class Discriminator(nn.Module):
         """
         super().__init__()
         self.in_size = in_size
-        # TODO: Create the discriminator model layers.
-        #  To extract image features you can use the EncoderCNN from the VAE
-        #  section or implement something new.
-        #  You can then use either an affine layer or another conv layer to
-        #  flatten the features.
-        # ====== YOUR CODE: ======
         C = self.in_size[0]
         out_channels = 1024
         self.encoder = EncoderCNN(C, out_channels)
         self.linear_layer = nn.Linear(out_channels, 1)
-        # ========================
 
     def forward(self, x):
         """
@@ -31,10 +24,6 @@ class Discriminator(nn.Module):
         :return: Discriminator class score (not probability) of
         shape (N,).
         """
-        # TODO: Implement discriminator forward pass.
-        #  No need to apply sigmoid to obtain probability - we'll combine it
-        #  with the loss due to improved numerical stability.
-        # ====== YOUR CODE: ======
         batch_size = x.shape[0]
         
         encoded = self.encoder(x)
@@ -42,10 +31,35 @@ class Discriminator(nn.Module):
         encoded = F.max_pool2d(encoded, kernel_size=kernel_size).view(-1, 1024)
         
         y = self.linear_layer(encoded).view(batch_size, 1)
-        # ========================
         return y
 
+class Discriminator_SN(nn.Module):
+    def __init__(self, in_size):
+        """
+        :param in_size: The size of on input image (without batch dimension).
+        """
+        super().__init__()
+        self.in_size = in_size
+        C = self.in_size[0]
+        out_channels = 1024
+        self.encoder = EncoderCNN(C, out_channels, sn=True)
+        self.linear_layer = nn.utils.spectral_norm(nn.Linear(out_channels, 1))
 
+    def forward(self, x):
+        """
+        :param x: Input of shape (N,C,H,W) matching the given in_size.
+        :return: Discriminator class score (not probability) of
+        shape (N,).
+        """
+        batch_size = x.shape[0]
+        
+        encoded = self.encoder(x)
+        kernel_size = encoded.shape[2:]
+        encoded = F.max_pool2d(encoded, kernel_size=kernel_size).view(-1, 1024)
+        
+        y = self.linear_layer(encoded).view(batch_size, 1)
+        return y
+    
 class Generator(nn.Module):
     def __init__(self, z_dim, featuremap_size=4, out_channels=3):
         """
@@ -57,11 +71,6 @@ class Generator(nn.Module):
         super().__init__()
         self.z_dim = z_dim
 
-        # TODO: Create the generator model layers.
-        #  To combine image features you can use the DecoderCNN from the VAE
-        #  section or implement something new.
-        #  You can assume a fixed image size.
-        # ====== YOUR CODE: ======
         self.hidden_dim = 512
         prep_layer_mid_size = self.hidden_dim * featuremap_size ** 2
         prep_layer_out_size = self.hidden_dim * 4 ** 2
@@ -75,7 +84,6 @@ class Generator(nn.Module):
         self.decoder = DecoderCNN(self.hidden_dim, out_channels)
         
         self.featuremap_dim = (self.hidden_dim, 4, 4)
-        # ========================
 
     def sample(self, n, with_grad=False):
         """
@@ -87,10 +95,6 @@ class Generator(nn.Module):
         :return: A batch of samples, shape (N,C,H,W).
         """
         device = next(self.parameters()).device
-        # TODO: Sample from the model.
-        #  Generate n latent space samples and return their reconstructions.
-        #  Don't use a loop.
-        # ====== YOUR CODE: ======
         torch.set_grad_enabled(with_grad)
         
         mean = torch.zeros((n, self.z_dim), device=device, requires_grad=with_grad)
@@ -98,7 +102,6 @@ class Generator(nn.Module):
         samples = self.forward(torch.normal(mean,std))
         
         torch.set_grad_enabled(True)
-        # ========================
         return samples
 
     def forward(self, z):
@@ -107,15 +110,10 @@ class Generator(nn.Module):
         :return: A batch of generated images of shape (N,C,H,W) which should be
         the shape which the Discriminator accepts.
         """
-        # TODO: Implement the Generator forward pass.
-        #  Don't forget to make sure the output instances have the same
-        #  dynamic range as the original (real) images.
-        # ====== YOUR CODE: ======
         batch_size = z.shape[0]
         in_decoder_size = (batch_size, ) + self.featuremap_dim
         x = self.preperation_layer(z).reshape(in_decoder_size)
         x = self.decoder(x)
-        # ========================
         return x
 
 
@@ -135,10 +133,6 @@ def discriminator_loss_fn(y_data, y_generated, data_label=0, label_noise=0.0):
     :return: The combined loss of both.
     """
     assert data_label == 1 or data_label == 0
-    # TODO:
-    #  Implement the discriminator loss.
-    #  See pytorch's BCEWithLogitsLoss for a numerically stable implementation.
-    # ====== YOUR CODE: ======
     batch_size = y_data.shape[0]
     BCWloss = nn.BCEWithLogitsLoss()
     label_noise /= 2
@@ -151,7 +145,6 @@ def discriminator_loss_fn(y_data, y_generated, data_label=0, label_noise=0.0):
     
     loss_data = BCWloss(torch.squeeze(y_data), real_labels)
     loss_generated = BCWloss(torch.squeeze(y_generated), fake_labels)
-    # ========================
     return loss_data + loss_generated
 
 
@@ -166,16 +159,10 @@ def generator_loss_fn(y_generated, data_label=0):
     :return: The generator loss.
     """
     assert data_label == 1 or data_label == 0
-    # TODO:
-    #  Implement the Generator loss.
-    #  Think about what you need to compare the input to, in order to
-    #  formulate the loss in terms of Binary Cross Entropy.
-    # ====== YOUR CODE: ======
     fake_labels = torch.full_like(y_generated, data_label, device=y_generated.device, requires_grad=True)
     BCWloss = nn.BCEWithLogitsLoss()
     
     loss = BCWloss(y_generated, fake_labels)
-    # ========================
     return loss
 
 
@@ -205,11 +192,6 @@ def train_batch(
     """
     gen_train_mul = max(1, gen_train_mul)
     
-    # TODO: Discriminator update
-    #  1. Show the discriminator real and generated data
-    #  2. Calculate discriminator loss
-    #  3. Update discriminator parameters
-    # ====== YOUR CODE: ======
     dsc_optimizer.zero_grad()
     batch_size = x_data.shape[0]
     generated_data = gen_model.sample(batch_size, False)
@@ -219,13 +201,7 @@ def train_batch(
     dsc_loss.backward()
     dsc_optimizer.step()
     
-    # ========================
-
-    # TODO: Generator update
-    #  1. Show the discriminator generated data
-    #  2. Calculate generator loss
-    #  3. Update generator parameters
-    # ====== YOUR CODE: ======
+#   generator training
     for _ in range(gen_train_mul):
         gen_optimizer.zero_grad()
         x_z = gen_model.sample(batch_size, True)
@@ -233,8 +209,6 @@ def train_batch(
         gen_loss = gen_loss_fn(score)
         gen_loss.backward()
         gen_optimizer.step()
-    
-    # ========================
 
     return dsc_loss.item(), gen_loss.item()
 
@@ -250,56 +224,12 @@ def save_checkpoint(gen_model, inception_score, epoch_num, checkpoint_file, top_
     saved = False
     epoch = epoch_num
     checkpoint_file = f"{checkpoint_file}_{epoch_num}_{inception_score}.pt"
-    # TODO:
-    #  Save a checkpoint of the generator model. You can use torch.save().
-    #  You should decide what logic to use for deciding when to save.
-    #  If you save, set saved to True.
-    # ====== YOUR CODE: ======
     min_score = 0
     
     if(epoch > 30):
         torch.save(gen_model, checkpoint_file)
         print("saved checkpoint")
         saved = True
-    # ========================
 
     return saved
 
-class Discriminator_SN(nn.Module):
-    def __init__(self, in_size):
-        """
-        :param in_size: The size of on input image (without batch dimension).
-        """
-        super().__init__()
-        self.in_size = in_size
-        # TODO: Create the discriminator model layers.
-        #  To extract image features you can use the EncoderCNN from the VAE
-        #  section or implement something new.
-        #  You can then use either an affine layer or another conv layer to
-        #  flatten the features.
-        # ====== YOUR CODE: ======
-        C = self.in_size[0]
-        out_channels = 1024
-        self.encoder = EncoderCNN(C, out_channels, sn=True)
-        self.linear_layer = nn.utils.spectral_norm(nn.Linear(out_channels, 1))
-        # ========================
-
-    def forward(self, x):
-        """
-        :param x: Input of shape (N,C,H,W) matching the given in_size.
-        :return: Discriminator class score (not probability) of
-        shape (N,).
-        """
-        # TODO: Implement discriminator forward pass.
-        #  No need to apply sigmoid to obtain probability - we'll combine it
-        #  with the loss due to improved numerical stability.
-        # ====== YOUR CODE: ======
-        batch_size = x.shape[0]
-        
-        encoded = self.encoder(x)
-        kernel_size = encoded.shape[2:]
-        encoded = F.max_pool2d(encoded, kernel_size=kernel_size).view(-1, 1024)
-        
-        y = self.linear_layer(encoded).view(batch_size, 1)
-        # ========================
-        return y
